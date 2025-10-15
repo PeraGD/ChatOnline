@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js"
+    "start": "node server/app.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
