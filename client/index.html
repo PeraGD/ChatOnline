@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WhatsApp Sencillo</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* Estilos básicos para chat y mensajes */
+    .hidden { display: none; }
+    #mensajes, #chatMensajesPrivados { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: auto; margin-bottom: 10px; }
+    .mensaje-propio { text-align: right; color: blue; }
+    .mensaje-ajeno { text-align: left; color: green; }
+    #usuariosLista { list-style: none; padding: 0; }
+    #usuariosLista li { cursor: pointer; padding: 5px; border-bottom: 1px solid #ddd; }
+    #usuariosLista li:hover { background-color: #f0f0f0; }
+    #chatPrivado, #usuariosConectados { margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <!-- Registro -->
+  <div id="registro">
+    <h2>Registro</h2>
+    <input id="regNombre" type="text" placeholder="Usuario">
+    <input id="regPass" type="password" placeholder="Contraseña">
+    <button id="btnRegistrar">Registrar</button>
+    <p>¿Ya tienes cuenta? <a href="#" id="linkLogin">Iniciar sesión</a></p>
+  </div>
+
+  <!-- Login -->
+  <div id="login" class="hidden">
+    <h2>Iniciar Sesión</h2>
+    <input id="loginNombre" type="text" placeholder="Usuario">
+    <input id="loginPass" type="password" placeholder="Contraseña">
+    <button id="btnLogin">Entrar</button>
+    <p>¿No tienes cuenta? <a href="#" id="linkRegistro">Registrarte</a></p>
+  </div>
+
+  <!-- Chat público -->
+  <div id="chat" class="hidden">
+    <h2>Chat Público</h2>
+    <div id="mensajes"></div>
+    <input id="mensaje" type="text" placeholder="Escribe un mensaje...">
+    <button id="btnEnviar">Enviar</button>
+  </div>
+
+  <!-- Usuarios conectados -->
+  <div id="usuariosConectados" class="hidden">
+    <h3>Usuarios conectados</h3>
+    <ul id="usuariosLista"></ul>
+  </div>
+
+  <!-- Chat privado -->
+  <div id="chatPrivado" class="hidden">
+    <h3>Chat Privado</h3>
+    <div id="chatMensajesPrivados"></div>
+    <input id="mensajePrivado" type="text" placeholder="Escribe un mensaje...">
+    <button onclick="enviarMensajePrivado()">Enviar</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="script.js"></script>
+  <script>
+    // Mostrar secciones de chat y usuarios después de login
+    const observer = new MutationObserver(() => {
+      const chatVisible = !document.getElementById('chat').classList.contains('hidden');
+      document.getElementById('usuariosConectados').classList.toggle('hidden', !chatVisible);
+      document.getElementById('chatPrivado').classList.toggle('hidden', !chatVisible);
+    });
+    observer.observe(document.getElementById('chat'), { attributes: true, attributeFilter: ['class'] });
+  </script>
+</body>
+</html>
