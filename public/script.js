@@ -89,17 +89,15 @@ function enviarMensajePrivado() {
   const mensaje = mensajePrivadoInput.value;
   if (!mensaje || !usuarioDestino) return alert('Selecciona un usuario y escribe un mensaje');
 
-  socket.emit('enviarMensajePrivado', { deId: usuario.id, paraNombre: usuarioDestino.nombre, mensaje });
-
-  // Guarda localmente el mensaje
-  if (!chatsPrivados[usuarioDestino.nombre]) chatsPrivados[usuarioDestino.nombre] = [];
-  chatsPrivados[usuarioDestino.nombre].push({ de: 'Tú', mensaje });
-
-  // Mostrarlo en el chat actual
-  mostrarChatPrivado(usuarioDestino.nombre);
+  socket.emit('enviarMensajePrivado', {
+    deId: usuario.id,
+    paraId: usuarioDestino.id,
+    mensaje
+  });
 
   mensajePrivadoInput.value = '';
 }
+
 
 
 
@@ -137,32 +135,28 @@ socket.on('usuariosConectados', (usuarios) => {
   listaUsuarios.innerHTML = '';
 
   usuarios.forEach(u => {
-    // Asegurarse de que u tenga formato correcto
-    const nombreUsuario = u.nombre || u; 
-    const idUsuario = u.id || null;
-
-    // No mostrar al propio usuario en la lista
-    if (nombreUsuario !== usuario.nombre) {
+    // Evita mostrarte a ti mismo
+    if (u.nombre !== usuario.nombre) {
       const li = document.createElement('li');
-      li.textContent = nombreUsuario;
-      li.classList.add('cursor-pointer', 'hover:bg-gray-200', 'p-1', 'rounded');
+      li.textContent = u.nombre;
 
-      // Al hacer clic, selecciona el chat privado
+      // Guardar ID y nombre para el chat privado
       li.onclick = () => {
-        usuarioDestino = { nombre: nombreUsuario, id: idUsuario };
+        usuarioDestino = u; // guarda el usuario destino { id, nombre }
 
-        // Quitar resaltado de otros
-        document.querySelectorAll('#usuariosLista li').forEach(el => el.classList.remove('bg-blue-300'));
-        li.classList.add('bg-blue-300');
+        // Resaltar usuario seleccionado
+        document.querySelectorAll('#usuariosLista li').forEach(li => li.classList.remove('seleccionado'));
+        li.classList.add('seleccionado');
 
-        // Mostrar el chat con esa persona
-        mostrarChatPrivado(nombreUsuario);
+        // Limpiar chat privado al cambiar de usuario
+        chatPrivadoDiv.innerHTML = '';
       };
 
       listaUsuarios.appendChild(li);
     }
   });
 });
+
 
 
 function mostrarChatPrivado(nombre) {
