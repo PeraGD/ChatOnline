@@ -61,9 +61,12 @@ io.on('connection', (socket) => {
 
   // Guardar usuario al iniciar sesión
   socket.on('iniciarSesion', (usuario) => {
-    usuariosConectados[socket.id] = { id: usuario.id, nombre: usuario.nombre };
-    io.emit('usuariosConectados', Object.values(usuariosConectados));
-  });
+  usuariosConectados[socket.id] = { id: usuario.id, nombre: usuario.nombre };
+  
+  // Enviar la lista completa de usuarios (id + nombre)
+  io.emit('usuariosConectados', Object.values(usuariosConectados));
+});
+
 
   // Mensajes públicos
   socket.on('enviarMensaje', (data) => {
@@ -109,10 +112,11 @@ socket.on('enviarMensajePrivado', (data) => {
 });
   // Desconexión
   socket.on('disconnect', () => {
-    delete usuariosConectados[socket.id];
-    io.emit('usuariosConectados', Object.values(usuariosConectados));
-    console.log('Usuario desconectado');
-  });
+  delete usuariosConectados[socket.id];
+  io.emit('usuariosConectados', Object.values(usuariosConectados));
+  console.log('Usuario desconectado');
+});
+
 });
 
 // =================== INICIAR SERVIDOR ===================
