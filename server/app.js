@@ -8,25 +8,20 @@ const db = require('./database');
 
 const app = express();
 const server = http.createServer(app);
-const io = require('socket.io')(server, {
+const io = socketIo(server, {
   cors: {
-    origin: "*",      // Permitir todos los orígenes (para pruebas en LAN)
+    origin: "*",
     methods: ["GET", "POST"]
   }
 });
-
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
-const usuariosConectados = {}; 
-// Ejemplo:
-// usuariosConectados[socket.id] = { id: 3, nombre: 'Juan' };
-
+const usuariosConectados = {}; // { socketId: { id, nombre } }
 
 // =================== RUTAS HTTP ===================
-
 // Registro
 app.post('/registrar', async (req, res) => {
   const { nombre, contrasena } = req.body;
@@ -59,14 +54,36 @@ app.post('/login', (req, res) => {
 io.on('connection', (socket) => {
   console.log('Usuario conectado');
 
-  // Guardar usuario al iniciar sesión
+  // Iniciar sesión
   socket.on('iniciarSesion', (usuario) => {
-  usuariosConectados[socket.id] = { id: usuario.id, nombre: usuario.nombre };
-  
-  // Enviar la lista completa de usuarios (id + nombre)
-  io.emit('usuariosConectados', Object.values(usuariosConectados));
-});
+    usuariosConectados[socket.id] = { id: usuario.id, nombre: usuario.nombre };
 
+    // Enviar lista de usuarios conectados
+    io.emit('usuariosConectados', Object.values(usuariosConectados));
+
+    // Enviar todos los mensajes públicos anteriores
+    db.all('SELECT m.id, u.nombre, m.mensaje, m.fecha FROM mensajes m JOIN usuarios u ON m.usuario_id = u.id ORDER BY m.id ASC', [], (err, rows) => {
+      if (!err) {
+        socket.emit('cargarMensajesPublicos', rows);
+      }
+    });
+
+    // Enviar mensajes privados hacia este usuario
+    db.all(
+      `SELECT mp.id, u1.nombre AS de, u2.nombre AS para, mp.mensaje, mp.fecha
+       FROM mensajes_privados mp
+       JOIN usuarios u1 ON mp.de_id = u1.id
+       JOIN usuarios u2 ON mp.para_id = u2.id
+       WHERE u1.id = ? OR u2.id = ? 
+       ORDER BY mp.id ASC`,
+      [usuario.id, usuario.id],
+      (err, rows) => {
+        if (!err) {
+          socket.emit('cargarMensajesPrivados', rows);
+        }
+      }
+    );
+  });
 
   // Mensajes públicos
   socket.on('enviarMensaje', (data) => {
@@ -78,17 +95,11 @@ io.on('connection', (socket) => {
   });
 
   // Mensajes privados
-socket.on('enviarMensajePrivado', (data) => {
-  const { deId, paraId, mensaje } = data;
-
-  // Guardar en la base de datos
-  db.run(
-    'INSERT INTO mensajes_privados (de_id, para_id, mensaje) VALUES (?, ?, ?)',
-    [deId, paraId, mensaje],
-    function(err) {
+  socket.on('enviarMensajePrivado', (data) => {
+    const { deId, paraId, mensaje } = data;
+    db.run('INSERT INTO mensajes_privados (de_id, para_id, mensaje) VALUES (?, ?, ?)', [deId, paraId, mensaje], function(err) {
       if (err) return console.error(err);
 
-      // Obtener los nombres reales de remitente y destinatario
       db.get(
         `SELECT mp.id, u1.nombre AS de, u2.nombre AS para, mp.mensaje, mp.fecha
          FROM mensajes_privados mp
@@ -97,29 +108,26 @@ socket.on('enviarMensajePrivado', (data) => {
          WHERE mp.id = ?`,
         [this.lastID],
         (err, row) => {
-          if (err || !row) return console.error(err);
-
-          // Emitir solo a los sockets correspondientes
-          for (let [socketId, u] of Object.entries(usuariosConectados)) {
-            if (u.id === deId || u.id === paraId) {
-              io.to(socketId).emit('nuevoMensajePrivado', row);
+          if (!err && row) {
+            for (let [socketId, u] of Object.entries(usuariosConectados)) {
+              if (u.id === deId || u.id === paraId) {
+                io.to(socketId).emit('nuevoMensajePrivado', row);
+              }
             }
           }
         }
       );
-    }
-  );
-});
+    });
+  });
+
   // Desconexión
   socket.on('disconnect', () => {
-  delete usuariosConectados[socket.id];
-  io.emit('usuariosConectados', Object.values(usuariosConectados));
-  console.log('Usuario desconectado');
-});
-
+    delete usuariosConectados[socket.id];
+    io.emit('usuariosConectados', Object.values(usuariosConectados));
+    console.log('Usuario desconectado');
+  });
 });
 
 // =================== INICIAR SERVIDOR ===================
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
-
