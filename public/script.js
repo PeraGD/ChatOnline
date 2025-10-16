@@ -1,10 +1,10 @@
 // client/script.js
-const socket = io( ); // IP del servidor
+const socket = io(); // Conexión al servidor
 
 let usuario = null;
 let usuarioDestino = null;
 
-// --- ELEMENTOS ---
+// --- ELEMENTOS DOM ---
 const registroDiv = document.getElementById('registro');
 const loginDiv = document.getElementById('login');
 const chatDiv = document.getElementById('chat');
@@ -17,18 +17,20 @@ const chatPrivadoDiv = document.getElementById('chatMensajesPrivados');
 const mensajeInput = document.getElementById('mensaje');
 const mensajePrivadoInput = document.getElementById('mensajePrivado');
 const listaUsuarios = document.getElementById('usuariosLista');
-// Guardar los chats privados por usuario
-const chatsPrivados = {}; // { nombreUsuario: [ {de, mensaje}, ... ] }
 
+// Guardar chats privados por nombre de usuario
+const chatsPrivados = {}; // { nombreUsuario: [ { de, mensaje }, ... ] }
 
 // --- BOTONES ---
 document.getElementById('btnRegistrar').onclick = registrar;
 document.getElementById('btnLogin').onclick = login;
 document.getElementById('btnEnviar').onclick = enviarMensaje;
+
 document.getElementById('linkLogin').onclick = () => {
   registroDiv.classList.add('hidden');
   loginDiv.classList.remove('hidden');
 };
+
 document.getElementById('linkRegistro').onclick = () => {
   loginDiv.classList.add('hidden');
   registroDiv.classList.remove('hidden');
@@ -37,8 +39,8 @@ document.getElementById('linkRegistro').onclick = () => {
 // --- FUNCIONES ---
 // Registro
 async function registrar() {
-  const nombre = regNombre.value;
-  const contrasena = regPass.value;
+  const nombre = regNombre.value.trim();
+  const contrasena = regPass.value.trim();
   if (!nombre || !contrasena) return alert('Completa todos los campos');
 
   const res = await fetch('/registrar', {
@@ -57,8 +59,8 @@ async function registrar() {
 
 // Login
 async function login() {
-  const nombre = loginNombre.value;
-  const contrasena = loginPass.value;
+  const nombre = loginNombre.value.trim();
+  const contrasena = loginPass.value.trim();
   if (!nombre || !contrasena) return alert('Completa todos los campos');
 
   const res = await fetch('/login', {
@@ -78,15 +80,21 @@ async function login() {
 
 // Mensaje público
 function enviarMensaje() {
-  const mensaje = mensajeInput.value;
+  const mensaje = mensajeInput.value.trim();
   if (!mensaje) return;
-  socket.emit('enviarMensaje', { usuario_id: usuario.id, nombre: usuario.nombre, mensaje });
+
+  socket.emit('enviarMensaje', {
+    usuario_id: usuario.id,
+    nombre: usuario.nombre,
+    mensaje
+  });
+
   mensajeInput.value = '';
 }
 
 // Mensaje privado
 function enviarMensajePrivado() {
-  const mensaje = mensajePrivadoInput.value;
+  const mensaje = mensajePrivadoInput.value.trim();
   if (!mensaje || !usuarioDestino) return alert('Selecciona un usuario y escribe un mensaje');
 
   socket.emit('enviarMensajePrivado', {
@@ -98,10 +106,8 @@ function enviarMensajePrivado() {
   mensajePrivadoInput.value = '';
 }
 
-
-
-
 // --- SOCKET.IO ESCUCHAS ---
+// Mensajes públicos
 socket.on('nuevoMensaje', (data) => {
   const div = document.createElement('div');
   div.textContent = `${data.nombre}: ${data.mensaje}`;
@@ -115,41 +121,33 @@ socket.on('nuevoMensajePrivado', (data) => {
   const nombreChat = data.de === usuario.nombre ? data.para : data.de;
   const de = data.de === usuario.nombre ? 'Tú' : data.de;
 
-  // Guarda el mensaje en el historial de ese chat
   if (!chatsPrivados[nombreChat]) chatsPrivados[nombreChat] = [];
   chatsPrivados[nombreChat].push({ de, mensaje: data.mensaje });
 
-  // Si estás viendo ese chat, muéstralo
+  // Mostrar chat solo si está abierto
   if (usuarioDestino && usuarioDestino.nombre === nombreChat) {
-    const div = document.createElement('div');
-    div.textContent = `${de}: ${data.mensaje}`;
-    div.classList.add(de === 'Tú' ? 'mensaje-propio' : 'mensaje-ajeno');
-    chatPrivadoDiv.appendChild(div);
-    chatPrivadoDiv.scrollTop = chatPrivadoDiv.scrollHeight;
+    mostrarChatPrivado(nombreChat);
   }
 });
 
-
-
+// Actualizar lista de usuarios conectados
 socket.on('usuariosConectados', (usuarios) => {
   listaUsuarios.innerHTML = '';
 
   usuarios.forEach(u => {
-    // Evita mostrarte a ti mismo
     if (u.nombre !== usuario.nombre) {
       const li = document.createElement('li');
       li.textContent = u.nombre;
 
-      // Guardar ID y nombre para el chat privado
       li.onclick = () => {
-        usuarioDestino = u; // guarda el usuario destino { id, nombre }
+        usuarioDestino = u; // { id, nombre }
 
         // Resaltar usuario seleccionado
         document.querySelectorAll('#usuariosLista li').forEach(li => li.classList.remove('seleccionado'));
         li.classList.add('seleccionado');
 
-        // Limpiar chat privado al cambiar de usuario
-        chatPrivadoDiv.innerHTML = '';
+        // Mostrar historial del chat privado
+        mostrarChatPrivado(usuarioDestino.nombre);
       };
 
       listaUsuarios.appendChild(li);
@@ -157,20 +155,17 @@ socket.on('usuariosConectados', (usuarios) => {
   });
 });
 
-
-
+// Mostrar historial de chat privado
 function mostrarChatPrivado(nombre) {
   chatPrivadoDiv.innerHTML = '';
+  if (!chatsPrivados[nombre]) return;
 
-  if (chatsPrivados[nombre]) {
-    chatsPrivados[nombre].forEach(m => {
-      const div = document.createElement('div');
-      div.textContent = `${m.de}: ${m.mensaje}`;
-      div.classList.add(m.de === 'Tú' ? 'mensaje-propio' : 'mensaje-ajeno');
-      chatPrivadoDiv.appendChild(div);
-    });
-  }
+  chatsPrivados[nombre].forEach(m => {
+    const div = document.createElement('div');
+    div.textContent = `${m.de}: ${m.mensaje}`;
+    div.classList.add(m.de === 'Tú' ? 'mensaje-propio' : 'mensaje-ajeno');
+    chatPrivadoDiv.appendChild(div);
+  });
+
+  chatPrivadoDiv.scrollTop = chatPrivadoDiv.scrollHeight;
 }
-
-
-

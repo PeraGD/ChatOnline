@@ -9,10 +9,7 @@ const db = require('./database');
 const app = express();
 const server = http.createServer(app);
 const io = socketIo(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+  cors: { origin: "*", methods: ["GET","POST"] }
 });
 
 app.use(express.json());
@@ -21,54 +18,45 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 const usuariosConectados = {}; // { socketId: { id, nombre } }
 
-// =================== RUTAS HTTP ===================
-// Registro
+// --- Registro ---
 app.post('/registrar', async (req, res) => {
   const { nombre, contrasena } = req.body;
   if (!nombre || !contrasena) return res.status(400).json({ error: 'Completa todos los campos' });
-
   const hash = await bcrypt.hash(contrasena, 10);
-
   db.run('INSERT INTO usuarios (nombre, contrasena) VALUES (?, ?)', [nombre, hash], function(err) {
     if (err) return res.status(400).json({ error: 'Usuario ya existe' });
     res.json({ id: this.lastID, nombre });
   });
 });
 
-// Login
+// --- Login ---
 app.post('/login', (req, res) => {
   const { nombre, contrasena } = req.body;
   if (!nombre || !contrasena) return res.status(400).json({ error: 'Completa todos los campos' });
-
   db.get('SELECT * FROM usuarios WHERE nombre = ?', [nombre], async (err, row) => {
     if (err || !row) return res.status(400).json({ error: 'Usuario no encontrado' });
-
     const ok = await bcrypt.compare(contrasena, row.contrasena);
     if (!ok) return res.status(400).json({ error: 'Contraseña incorrecta' });
-
     res.json({ id: row.id, nombre: row.nombre });
   });
 });
 
-// =================== SOCKET.IO ===================
+// --- Socket.IO ---
 io.on('connection', (socket) => {
   console.log('Usuario conectado');
 
-  // Iniciar sesión
   socket.on('iniciarSesion', (usuario) => {
     usuariosConectados[socket.id] = { id: usuario.id, nombre: usuario.nombre };
 
-    // Enviar lista de usuarios conectados
+    // Lista de usuarios conectados
     io.emit('usuariosConectados', Object.values(usuariosConectados));
 
-    // Enviar todos los mensajes públicos anteriores
+    // Cargar mensajes públicos
     db.all('SELECT m.id, u.nombre, m.mensaje, m.fecha FROM mensajes m JOIN usuarios u ON m.usuario_id = u.id ORDER BY m.id ASC', [], (err, rows) => {
-      if (!err) {
-        socket.emit('cargarMensajesPublicos', rows);
-      }
+      if (!err) socket.emit('cargarMensajesPublicos', rows);
     });
 
-    // Enviar mensajes privados hacia este usuario
+    // Cargar mensajes privados del usuario
     db.all(
       `SELECT mp.id, u1.nombre AS de, u2.nombre AS para, mp.mensaje, mp.fecha
        FROM mensajes_privados mp
@@ -78,16 +66,13 @@ io.on('connection', (socket) => {
        ORDER BY mp.id ASC`,
       [usuario.id, usuario.id],
       (err, rows) => {
-        if (!err) {
-          socket.emit('cargarMensajesPrivados', rows);
-        }
+        if (!err) socket.emit('cargarMensajesPrivados', rows);
       }
     );
   });
 
   // Mensajes públicos
-  socket.on('enviarMensaje', (data) => {
-    const { usuario_id, nombre, mensaje } = data;
+  socket.on('enviarMensaje', ({ usuario_id, nombre, mensaje }) => {
     db.run('INSERT INTO mensajes (usuario_id, mensaje) VALUES (?, ?)', [usuario_id, mensaje], function(err) {
       if (err) return console.error(err);
       io.emit('nuevoMensaje', { id: this.lastID, nombre, mensaje, fecha: new Date().toISOString() });
@@ -95,11 +80,9 @@ io.on('connection', (socket) => {
   });
 
   // Mensajes privados
-  socket.on('enviarMensajePrivado', (data) => {
-    const { deId, paraId, mensaje } = data;
+  socket.on('enviarMensajePrivado', ({ deId, paraId, mensaje }) => {
     db.run('INSERT INTO mensajes_privados (de_id, para_id, mensaje) VALUES (?, ?, ?)', [deId, paraId, mensaje], function(err) {
       if (err) return console.error(err);
-
       db.get(
         `SELECT mp.id, u1.nombre AS de, u2.nombre AS para, mp.mensaje, mp.fecha
          FROM mensajes_privados mp
@@ -109,6 +92,7 @@ io.on('connection', (socket) => {
         [this.lastID],
         (err, row) => {
           if (!err && row) {
+            // Emitir solo al remitente y destinatario
             for (let [socketId, u] of Object.entries(usuariosConectados)) {
               if (u.id === deId || u.id === paraId) {
                 io.to(socketId).emit('nuevoMensajePrivado', row);
@@ -128,6 +112,6 @@ io.on('connection', (socket) => {
   });
 });
 
-// =================== INICIAR SERVIDOR ===================
+// --- Iniciar servidor ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
