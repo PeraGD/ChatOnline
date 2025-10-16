@@ -18,7 +18,7 @@ const io = require('socket.io')(server, {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, '../client')));
+app.use(express.static(path.join(__dirname, '../public')));
 
 const usuariosConectados = {}; // { socketId: { id, nombre } }
 
