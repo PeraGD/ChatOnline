@@ -59,8 +59,8 @@ async function registrar() {
 
 // Login
 async function login() {
-  const nombre = loginNombre.value.trim();
-  const contrasena = loginPass.value.trim();
+  const nombre = loginNombre.value;
+  const contrasena = loginPass.value;
   if (!nombre || !contrasena) return alert('Completa todos los campos');
 
   const res = await fetch('/login', {
@@ -75,8 +75,22 @@ async function login() {
     socket.emit('iniciarSesion', usuario);
     loginDiv.classList.add('hidden');
     chatDiv.classList.remove('hidden');
+
+    // ⚡ Cargar mensajes públicos anteriores
+    const resMensajes = await fetch('/mensajes');
+    const mensajes = await resMensajes.json();
+    mensajesDiv.innerHTML = '';
+    mensajes.forEach(m => {
+      const div = document.createElement('div');
+      div.textContent = `${m.nombre}: ${m.mensaje}`;
+      div.classList.add(m.nombre === usuario.nombre ? 'mensaje-propio' : 'mensaje-ajeno');
+      mensajesDiv.appendChild(div);
+    });
+    mensajesDiv.scrollTop = mensajesDiv.scrollHeight;
+
   } else alert(data.error);
 }
+
 
 // Mensaje público
 function enviarMensaje() {

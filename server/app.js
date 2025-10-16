@@ -112,6 +112,22 @@ io.on('connection', (socket) => {
   });
 });
 
+// Obtener mensajes públicos
+app.get('/mensajes', (req, res) => {
+  db.all(
+    `SELECT m.id, u.nombre, m.mensaje, m.fecha
+     FROM mensajes m
+     JOIN usuarios u ON m.usuario_id = u.id
+     ORDER BY m.fecha ASC`,
+    [],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Error al obtener mensajes' });
+      res.json(rows);
+    }
+  );
+});
+
+
 // --- Iniciar servidor ---
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Servidor corriendo en puerto ${PORT}`));
