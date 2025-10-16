@@ -20,7 +20,10 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../public')));
 
-const usuariosConectados = {}; // { socketId: { id, nombre } }
+const usuariosConectados = {}; 
+// Ejemplo:
+// usuariosConectados[socket.id] = { id: 3, nombre: 'Juan' };
+
 
 // =================== RUTAS HTTP ===================
 

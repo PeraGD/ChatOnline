@@ -137,27 +137,33 @@ socket.on('usuariosConectados', (usuarios) => {
   listaUsuarios.innerHTML = '';
 
   usuarios.forEach(u => {
-    if (u !== usuario.nombre) {
+    // Asegurarse de que u tenga formato correcto
+    const nombreUsuario = u.nombre || u; 
+    const idUsuario = u.id || null;
+
+    // No mostrar al propio usuario en la lista
+    if (nombreUsuario !== usuario.nombre) {
       const li = document.createElement('li');
-      li.textContent = u;
+      li.textContent = nombreUsuario;
       li.classList.add('cursor-pointer', 'hover:bg-gray-200', 'p-1', 'rounded');
-      
-      // Cuando se hace clic en un usuario
+
+      // Al hacer clic, selecciona el chat privado
       li.onclick = () => {
-        usuarioDestino = { nombre: u, id: null };
-        
-        // Resaltar usuario seleccionado
+        usuarioDestino = { nombre: nombreUsuario, id: idUsuario };
+
+        // Quitar resaltado de otros
         document.querySelectorAll('#usuariosLista li').forEach(el => el.classList.remove('bg-blue-300'));
         li.classList.add('bg-blue-300');
 
-        // Mostrar su chat
-        mostrarChatPrivado(u);
+        // Mostrar el chat con esa persona
+        mostrarChatPrivado(nombreUsuario);
       };
-      
+
       listaUsuarios.appendChild(li);
     }
   });
 });
+
 
 function mostrarChatPrivado(nombre) {
   chatPrivadoDiv.innerHTML = '';
