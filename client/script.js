@@ -1,5 +1,5 @@
 // client/script.js
-const socket = io('http://192.168.4.72:3000'); // IP del servidor
+const socket = io( ); // IP del servidor
 
 let usuario = null;
 let usuarioDestino = null;
